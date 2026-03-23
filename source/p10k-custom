@@ -1,4 +1,3 @@
-# Segment implementation
 function prompt_uv_project() {
   if [[ -n "$UV_PROJECT_ACTIVE" ]]; then
     local PROJ="$UV_PROJECT_PATH"
