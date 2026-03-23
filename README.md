@@ -22,17 +22,6 @@ The goal is to provide a clean, reproducible, folder‑based environment setup t
 
 ---
 
-## 🔧 Supported Environment Types
-
-qs-env currently supports:
-
-- Classical Python `venv`
-- `uv` projects
-
-Other environment managers (Conda, Poetry, Rye, virtualenvwrapper, etc.) are **not supported yet**.
-
----
-
 ## 📥 Installation
 
 ### 1. Download or clone the repository
@@ -43,7 +32,7 @@ Other environment managers (Conda, Poetry, Rye, virtualenvwrapper, etc.) are **n
 chmod +x install.command
 ```
 
-### 3. Double-click `install.command` in Finder
+### 3. Double-click install.command in Finder
 
 This will:
 - Create `~/.qs/`
@@ -55,7 +44,7 @@ This will:
 
 ---
 
-## 🧩 What gets added to `.zshrc`
+## 🧩 What gets added to .zshrc
 
 Depending on your choices, the installer adds:
 ```bash
@@ -75,18 +64,53 @@ These lines are inserted immediately **after** the last line containing `p10k` i
 chmod +x uninstall.command
 ```
 
-### 2. Double‑click `uninstall.command` in Finder
+### 2. Double‑click uninstall.command in Finder
 
 This will:
-- Remove the entire ~/.qs/ directory
-- Remove legacy files (~/.qs, ~/.qs_default, ~/.p10k-custom.zsh)
-- Remove all related lines from .zshrc
+- Remove the entire `~/.qs/ directory`
+- Remove legacy files (`~/.qs`, `~/.qs_default`, `~/.p10k-custom.zsh`)
+- Remove all related lines from `.zshrc`
 - Save a backup as:
 ```bash
 ~/.zshrc.bak.qs-uninstall
 ```
 
 ### 3. Restart your terminal
+
+---
+
+## 🧑‍💻 Usage
+
+After installation, the `qs` function becomes available in every new terminal session.
+
+qs currently supports:
+
+- Classical Python `venv`
+- `uv` projects
+
+### 1. Entre a uv project or activate a venv
+
+```bash
+qs <name>
+```
+
+if `qs` is run without a name, it will go to the default name, this can be changed via:
+
+```bash
+qs --set default <name>
+```
+
+### 2. To see all the names
+
+```bash
+qs list
+```
+
+### 3. To see the full usage detail
+
+```bash
+qs help
+```
 
 ---
 
@@ -111,7 +135,7 @@ After installation:
 
 ## 🧭 Troubleshooting
 
-### The installer didn’t add lines to `.zshrc`
+### The installer didn’t add lines to .zshrc
 
 Check that:
 - Your `.zshrc` contains at least one line referencing p10k
