@@ -1,20 +1,15 @@
-# --- Custom Powerlevel10k extensions for uv_project -------------------------
-
 # Segment implementation
 function prompt_uv_project() {
   if [[ -n "$UV_PROJECT_ACTIVE" ]]; then
     local PROJ="$UV_PROJECT_PATH"
     local PYFILE="$PROJ/.python-version"
 
-    # Read pinned version
     local PINNED=""
     [[ -f "$PYFILE" ]] && PINNED="$(tr -d '[:space:]' < "$PYFILE")"
 
-    # Actual version from venv
     local ACTUAL_FULL="$(get_python_version "$PROJ")"
     local ACTUAL_SHORT="${ACTUAL_FULL%.*}"
 
-    # Actual version from uv run (pre-sync)
     local UV_FULL="$(cd "$PROJ" && uv run python --version 2>/dev/null | awk '{print $2}')"
     local UV_SHORT="${UV_FULL%.*}"
 
@@ -35,22 +30,16 @@ function prompt_uv_project() {
   fi
 }
 
-# --- Automatic placement of uv_project in right prompt ----------------------
-
-# Only add if not already present
 if [[ -z "${POWERLEVEL9K_RIGHT_PROMPT_ELEMENTS[(r)uv_project]}" ]]; then
-  # Find index of virtualenv
   local idx=${POWERLEVEL9K_RIGHT_PROMPT_ELEMENTS[(i)virtualenv]}
 
   if (( idx <= ${#POWERLEVEL9K_RIGHT_PROMPT_ELEMENTS[@]} )); then
-    # Insert uv_project immediately after virtualenv
     POWERLEVEL9K_RIGHT_PROMPT_ELEMENTS=(
       "${POWERLEVEL9K_RIGHT_PROMPT_ELEMENTS[@]:1:${idx}}"
       uv_project
       "${POWERLEVEL9K_RIGHT_PROMPT_ELEMENTS[@]:$((idx+1))}"
     )
   else
-    # Fallback: append if virtualenv is missing
     POWERLEVEL9K_RIGHT_PROMPT_ELEMENTS+=(
       uv_project
     )

@@ -1,23 +1,18 @@
 qs() {
     local CONFIG_FILE="$HOME/.qs_default"
 
-    # Load default path if config exists
     local DEFAULT_PATH=""
     [[ -f "$CONFIG_FILE" ]] && DEFAULT_PATH="$(< "$CONFIG_FILE")"
 
-    # Fallback default if no config file
     [[ -z "$DEFAULT_PATH" ]] && DEFAULT_PATH="$HOME/uv-global"
 
-    # Detect uv project
     is_uv_project() {
         [[ -f "$1/pyproject.toml" && -f "$1/.venv/bin/python" ]]
     }
 
-    # Get python version from venv or uv project
     get_python_version() {
         local PROJ="$1"
 
-        # Normalize to absolute path
         PROJ="$(cd "$PROJ" 2>/dev/null && pwd)"
         local VENV="$PROJ/.venv"
 
@@ -39,7 +34,6 @@ qs() {
         echo "unknown"
     }
 
-    # Activate traditional venv
     activate_venv() {
         local VENV="$1"
         deactivate 2>/dev/null
@@ -50,11 +44,9 @@ qs() {
         p10k reload 2>/dev/null
     }
 
-    # Activate uv project
     activate_uv_project() {
         local PROJ="$1"
     
-        # Always absolute, always safe
         local ABS_PROJ="$(cd "$PROJ" 2>/dev/null && pwd)"
         local PYV="$(get_python_version "$ABS_PROJ")"
     
@@ -71,7 +63,6 @@ qs() {
         p10k reload 2>/dev/null
     }
 
-    # Exit uv project
     exit_uv_project() {
         unset UV_PROJECT_ACTIVE UV_PROJECT_NAME UV_PROJECT_PYTHON UV_PROJECT_PATH
         cd ~
@@ -79,14 +70,12 @@ qs() {
         p10k reload 2>/dev/null
     }
 
-    # Exit venv
     exit_venv() {
         deactivate 2>/dev/null
         echo "Deactivated venv"
         p10k reload 2>/dev/null
     }
 
-    # Help
     if [[ "$1" == "-help" ]]; then
         cat <<EOF
 qs                         # toggle uv/venv or enter default
@@ -98,7 +87,6 @@ EOF
         return
     fi
 
-    # Show default
     if [[ "$1" == "default" ]]; then
         if is_uv_project "$DEFAULT_PATH"; then
             local PYV="$(get_python_version "$DEFAULT_PATH")"
@@ -112,7 +100,6 @@ EOF
         return
     fi
 
-    # Set default
     if [[ "$1" == "--set" && "$2" == "default" ]]; then
         if [[ -z "$3" ]]; then
             echo "Usage: qs --set default <path>"
@@ -132,7 +119,6 @@ EOF
         return
     fi
 
-    # List all
     if [[ "$1" == "list" ]]; then
         echo "venv environments:"
         for d in "$HOME"/*/; do
@@ -148,7 +134,6 @@ EOF
         return 0
     fi
 
-    # No args → toggle or enter default
     if [[ $# -eq 0 ]]; then
         if [[ -n "$UV_PROJECT_ACTIVE" ]]; then
             exit_uv_project
@@ -170,7 +155,6 @@ EOF
         return
     fi
 
-    # Match name
     local TARGET=""
     for d in "$HOME"/*/ "$PWD"/*/; do
         [[ -d "$d" ]] || continue
