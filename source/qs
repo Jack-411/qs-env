@@ -76,6 +76,16 @@ qs() {
         p10k reload 2>/dev/null
     }
 
+    if [[ "$1" == "--version" || "$1" == "-v" ]]; then
+        VERSION_FILE="$HOME/.qs/VERSION"
+        if [[ -f "$VERSION_FILE" ]]; then
+            echo "qs version $(cat "$VERSION_FILE")"
+        else
+            echo "qs version: unknown (VERSION file missing)"
+        fi
+        return 0
+    fi
+
     if [[ "$1" == "-help" ]]; then
         cat <<EOF
 qs                         # toggle uv/venv or enter default
