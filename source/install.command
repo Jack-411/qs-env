@@ -9,6 +9,7 @@ ZSHRC="$HOME/.zshrc"
 
 mkdir -p "$INSTALL_DIR"
 cp "qs" "$QS_DEST"
+cp "VERSION" "$INSTALL_DIR/VERSION"
 
 insert_after_line() {
     local LINE_NUM="$1"
