@@ -141,6 +141,7 @@ Check that:
 - Your `.zshrc` contains at least one line referencing p10k
 - The file is writable
 - You restarted your terminal
+
 If you do **not** use p10k, manually add the line to `zshrc`:
 ```bash
 [[ -f ~/.qs/.qs ]] && source ~/.qs/.qs
