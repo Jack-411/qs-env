@@ -27,7 +27,7 @@ The goal is to provide a clean, reproducible, folder‑based environment setup t
 qs-env currently supports:
 
 - Classical Python `venv`
-- `uv` environments
+- `uv` projects
 
 Other environment managers (Conda, Poetry, Rye, virtualenvwrapper, etc.) are **not supported yet**.
 
@@ -44,6 +44,7 @@ chmod +x install.command
 ```
 
 ### 3. Double-click `install.command` in Finder
+
 This will:
 - Create `~/.qs/`
 - Install `.qs` (always)
@@ -55,6 +56,7 @@ This will:
 ---
 
 ## 🧩 What gets added to `.zshrc`
+
 Depending on your choices, the installer adds:
 ```bash
 [[ -f ~/.qs/.p10k-custom.zsh ]] && source ~/.qs/.p10k-custom.zsh
@@ -68,11 +70,13 @@ These lines are inserted immediately **after** the last line containing `p10k` i
 ## 🧹 Uninstallation
 
 ### 1. Make the uninstaller executable (only needed once)
+
 ```bash
 chmod +x uninstall.command
 ```
 
 ### 2. Double‑click `uninstall.command` in Finder
+
 This will:
 - Remove the entire ~/.qs/ directory
 - Remove legacy files (~/.qs, ~/.qs_default, ~/.p10k-custom.zsh)
@@ -87,6 +91,7 @@ This will:
 ---
 
 ## 🛠 Folder Structure
+
 After installation:
 ```bash
 ~/.qs/
@@ -97,6 +102,7 @@ After installation:
 ---
 
 ## 💡 Notes
+
 - The installer is designed specifically for macOS and uses `.command` files so users can install by double‑clicking.
 - The `.zshrc` insertion logic is robust: it always finds the last p10k‑related line and inserts your lines directly after it.
 - The uninstaller removes everything cleanly and safely.
@@ -104,7 +110,9 @@ After installation:
 ---
 
 ## 🧭 Troubleshooting
+
 ### The installer didn’t add lines to `.zshrc`
+
 Check that:
 - Your `.zshrc` contains at least one line referencing p10k
 - The file is writable
@@ -115,6 +123,7 @@ If you do **not** use p10k, manually add the line to `zshrc`:
 ```
 
 ### The custom p10k segment doesn’t show up
+
 Run:
 ```bash
 source ~/.zshrc
