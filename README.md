@@ -112,6 +112,12 @@ qs list
 qs help
 ```
 
+### 4. To check the qs environment
+
+```bash
+qs doctor
+```
+
 ---
 
 ## 🛠 Folder Structure
@@ -135,7 +141,7 @@ After installation:
 
 ## 🧭 Troubleshooting
 
-### The installer didn’t add lines to .zshrc
+### The installer did not add lines to .zshrc
 
 Check that:
 - Your `.zshrc` contains at least one line referencing p10k
@@ -147,7 +153,7 @@ If you do **not** use p10k, manually add the line to `zshrc`:
 [[ -f ~/.qs/.qs ]] && source ~/.qs/.qs
 ```
 
-### The custom p10k segment doesn’t show up
+### The custom p10k segment does not show up
 
 Run:
 ```bash
