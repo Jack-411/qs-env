@@ -1,7 +1,6 @@
 #!/bin/bash
 
 cd "$(dirname "$0")"
-
 set -e
 
 ZSHRC="$HOME/.zshrc"
@@ -29,6 +28,12 @@ if [[ -f "$HOME/.p10k-custom.zsh" ]]; then
 fi
 
 echo "Cleaning .zshrc…"
+
+if [[ ! -f "$ZSHRC" ]]; then
+    echo "No ~/.zshrc found — nothing to clean."
+    echo "Uninstallation complete."
+    exit 0
+fi
 
 cp "$ZSHRC" "$ZSHRC.bak.qs-uninstall"
 

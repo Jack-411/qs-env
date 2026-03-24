@@ -76,6 +76,101 @@ qs() {
         p10k reload 2>/dev/null
     }
 
+    qs_doctor() {
+        local GREEN="\033[32m"
+        local RED="\033[31m"
+        local YELLOW="\033[33m"
+        local BLUE="\033[34m"
+        local RESET="\033[0m"
+
+        echo -e "${BLUE}Running qs doctor...${RESET}"
+        echo ""
+
+        if [[ -d "$HOME/.qs" ]]; then
+            echo -e "${GREEN}✓ ~/.qs directory exists${RESET}"
+        else
+            echo -e "${RED}✗ ~/.qs directory missing${RESET}"
+        fi
+
+        if [[ -f "$HOME/.qs/.qs" ]]; then
+            echo -e "${GREEN}✓ ~/.qs/.qs found${RESET}"
+        else
+            echo -e "${RED}✗ ~/.qs/.qs missing${RESET}"
+        fi
+
+        if [[ -f "$HOME/.qs/.qs-version" ]]; then
+            echo -e "${GREEN}✓ Version file found: $(cat "$HOME/.qs/.qs-version")${RESET}"
+        else
+            echo -e "${RED}✗ Version file missing${RESET}"
+        fi
+
+        if grep -Fq '[[ -f ~/.qs/.qs ]] && source ~/.qs/.qs' "$HOME/.zshrc"; then
+            echo -e "${GREEN}✓ .zshrc contains qs source line${RESET}"
+        else
+            echo -e "${RED}✗ .zshrc does not contain qs source line${RESET}"
+        fi
+
+        if command -v python3 >/dev/null 2>&1; then
+            echo -e "${GREEN}✓ python3 available: $(python3 --version)${RESET}"
+        else
+            echo -e "${RED}✗ python3 not found${RESET}"
+        fi
+
+        if command -v uv >/dev/null 2>&1; then
+            echo -e "${GREEN}✓ uv available: $(uv --version | head -n 1)${RESET}"
+        else
+            echo -e "${YELLOW}⚠ uv not found (optional)${RESET}"
+        fi
+
+        if [[ -n "$VIRTUAL_ENV" ]]; then
+            echo -e "${GREEN}✓ Active environment detected:${RESET} $VIRTUAL_ENV"
+
+            if [[ -f "$VIRTUAL_ENV/pyvenv.cfg" ]]; then
+                echo -e "${BLUE}  → Classical venv detected${RESET}"
+
+                [[ -f "$VIRTUAL_ENV/bin/activate" ]] \
+                    && echo -e "${GREEN}    ✓ activate script present${RESET}" \
+                    || echo -e "${RED}    ✗ activate script missing${RESET}"
+
+                [[ -x "$VIRTUAL_ENV/bin/python" ]] \
+                    && echo -e "${GREEN}    ✓ python binary present${RESET}" \
+                    || echo -e "${RED}    ✗ python binary missing${RESET}"
+            fi
+
+            if command -v uv >/dev/null 2>&1; then
+                local UV_PY=$(uv python --version 2>/dev/null | awk '{print $2}')
+                local VENV_PY=$(grep -E "^version" "$VIRTUAL_ENV/pyvenv.cfg" 2>/dev/null | awk -F' = ' '{print $2}')
+
+                if [[ -n "$UV_PY" && -n "$VENV_PY" ]]; then
+                    if [[ "$UV_PY" == "$VENV_PY" ]]; then
+                        echo -e "${GREEN}    ✓ uv python version matches environment${RESET}"
+                    else
+                        echo -e "${YELLOW}    ⚠ uv python version mismatch${RESET}"
+                        echo -e "${YELLOW}      uv expects: $UV_PY${RESET}"
+                        echo -e "${YELLOW}      env has:    $VENV_PY${RESET}"
+                        echo -e "${YELLOW}      → Run: uv sync${RESET}"
+                    fi
+                fi
+
+                local SITE_PKGS=$(python3 -c "import site; print(site.getsitepackages()[0])" 2>/dev/null)
+                if [[ -d "$SITE_PKGS" ]]; then
+                    if [[ -z "$(ls -A "$SITE_PKGS")" ]]; then
+                        echo -e "${YELLOW}    ⚠ site-packages empty — environment may not be synced${RESET}"
+                        echo -e "${YELLOW}      → Run: uv sync${RESET}"
+                    else
+                        echo -e "${GREEN}    ✓ site-packages populated${RESET}"
+                    fi
+                fi
+            fi
+
+        else
+            echo -e "${YELLOW}ℹ No active environment${RESET}"
+        fi
+
+        echo ""
+        echo -e "${BLUE}qs doctor completed.${RESET}"
+    }
+
     if [[ "$1" == "--version" || "$1" == "-v" ]]; then
         VERSION_FILE="$HOME/.qs/.qs-version"
         if [[ -f "$VERSION_FILE" ]]; then
@@ -92,9 +187,15 @@ qs                         # toggle uv/venv or enter default
 qs default                 # show current default path
 qs --set default <name>    # set/change default path
 qs list                    # list all venv and uv projects
+qs doctor                  # diagnose qs installation and environments
 qs <name>                  # activate venv or enter uv project
 EOF
         return
+    fi
+
+    if [[ "$1" == "doctor" ]]; then
+        qs_doctor
+        return 0
     fi
 
     if [[ "$1" == "default" ]]; then
