@@ -174,7 +174,7 @@ qs() {
     if [[ "$1" == "--version" || "$1" == "-v" ]]; then
         VERSION_FILE="$HOME/.qs/.qs-version"
         if [[ -f "$VERSION_FILE" ]]; then
-            echo "qs version $(cat "$VERSION_FILE")"
+            echo "qs $(cat "$VERSION_FILE")"
         else
             echo "qs version: unknown (version file missing)"
         fi

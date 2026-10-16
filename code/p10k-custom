@@ -2,22 +2,38 @@ function prompt_uv_project() {
   if [[ -n "$UV_PROJECT_ACTIVE" ]]; then
     local PROJ="$UV_PROJECT_PATH"
     local PYFILE="$PROJ/.python-version"
+    local VENV="$PROJ/.venv"
 
     local PINNED=""
-    [[ -f "$PYFILE" ]] && PINNED="$(tr -d '[:space:]' < "$PYFILE")"
+    local ACTUAL_FULL=""
+    local ACTUAL_SHORT=""
+    local PINNED_SHORT=""
+    local DISPLAY="unsynced"
 
-    local ACTUAL_FULL="$(get_python_version "$PROJ")"
-    local ACTUAL_SHORT="${ACTUAL_FULL%.*}"
+    [[ -f "$PYFILE" ]] && \
+      PINNED="$(tr -d '[:space:]' < "$PYFILE")"
 
-    local UV_FULL="$(cd "$PROJ" && uv run python --version 2>/dev/null | awk '{print $2}')"
-    local UV_SHORT="${UV_FULL%.*}"
+    if [[ -x "$VENV/bin/python" ]]; then
+      ACTUAL_FULL="$("$VENV/bin/python" --version 2>/dev/null | awk '{print $2}')"
+    elif [[ -x "$VENV/bin/python3" ]]; then
+      ACTUAL_FULL="$("$VENV/bin/python3" --version 2>/dev/null | awk '{print $2}')"
+    fi
 
-    local DISPLAY=""
+    if [[ -n "$PINNED" && -n "$ACTUAL_FULL" ]]; then
+      if [[ "$PINNED" == *.*.* ]]; then
+        [[ "$PINNED" == "$ACTUAL_FULL" ]] && \
+          DISPLAY="$ACTUAL_FULL"
+      else
+        PINNED_SHORT="$(printf '%s\n' "$PINNED" |
+          awk -F. '{if (NF >= 2) print $1 "." $2}')"
+        ACTUAL_SHORT="$(printf '%s\n' "$ACTUAL_FULL" |
+          awk -F. '{if (NF >= 2) print $1 "." $2}')"
 
-    if [[ "$PINNED" != "$ACTUAL_SHORT" || "$PINNED" != "$UV_SHORT" ]]; then
-      DISPLAY="unsynced"
-    else
-      DISPLAY="$ACTUAL_FULL"
+        if [[ -n "$PINNED_SHORT" &&
+              "$PINNED_SHORT" == "$ACTUAL_SHORT" ]]; then
+          DISPLAY="$ACTUAL_FULL"
+        fi
+      fi
     fi
 
     export UV_PROJECT_PYTHON="$DISPLAY"
@@ -28,6 +44,22 @@ function prompt_uv_project() {
     typeset -g POWERLEVEL9K_VCS_DISABLED=true
   fi
 }
+
+if [[ -z "${POWERLEVEL9K_RIGHT_PROMPT_ELEMENTS[(r)uv_project]}" ]]; then
+  local idx=${POWERLEVEL9K_RIGHT_PROMPT_ELEMENTS[(i)virtualenv]}
+
+  if (( idx <= ${#POWERLEVEL9K_RIGHT_PROMPT_ELEMENTS[@]} )); then
+    POWERLEVEL9K_RIGHT_PROMPT_ELEMENTS=(
+      "${POWERLEVEL9K_RIGHT_PROMPT_ELEMENTS[@]:1:${idx}}"
+      uv_project
+      "${POWERLEVEL9K_RIGHT_PROMPT_ELEMENTS[@]:$((idx+1))}"
+    )
+  else
+    POWERLEVEL9K_RIGHT_PROMPT_ELEMENTS+=(
+      uv_project
+    )
+  fi
+fi
 
 if [[ -z "${POWERLEVEL9K_RIGHT_PROMPT_ELEMENTS[(r)uv_project]}" ]]; then
   local idx=${POWERLEVEL9K_RIGHT_PROMPT_ELEMENTS[(i)virtualenv]}
