@@ -18,8 +18,6 @@ Open Terminal and run:
 curl -fsSL https://raw.githubusercontent.com/Jack-411/qs-env/main/install.sh | bash
 ```
 
-That's it — no downloads to approve, no `chmod`, no Gatekeeper prompts, no permissions to fiddle with. Then open a new terminal and run `qs help`.
-
 Options:
 
 ```bash
