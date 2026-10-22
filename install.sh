@@ -104,14 +104,15 @@ awk -v b="$MARK_BEGIN" -v e="$MARK_END" -v ql="$QS_LINE" -v pl="$P10K_LINE" '
 ' "$ZSHRC" > "$TMP"
 
 # Pass 2 — insert the block after the last p10k-related line; append if none.
+# (head/tail instead of awk -v: macOS BSD awk rejects newline-containing
+# -v values with "newline in string".)
 LAST_P10K="$(grep -in 'p10k' "$TMP" | tail -n 1 | cut -d: -f1 || true)"
 
 OUT="$STAGE/zshrc.new"
 if [[ -n "$LAST_P10K" ]]; then
-    awk -v ln="$LAST_P10K" -v block="$BLOCK" '
-        { print }
-        NR == ln { print block }
-    ' "$TMP" > "$OUT"
+    head -n "$LAST_P10K" "$TMP" > "$OUT"
+    printf '%s\n' "$BLOCK" >> "$OUT"
+    tail -n +$((LAST_P10K + 1)) "$TMP" >> "$OUT"
 else
     cat "$TMP" > "$OUT"
     printf '%s\n' "$BLOCK" >> "$OUT"
