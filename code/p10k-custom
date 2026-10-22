@@ -51,3 +51,30 @@ function prompt_uv_project() {
     p10k segment -i '' -t " $UV_PROJECT_NAME ($DISPLAY) ⚡"
   fi
 }
+
+# --- safety net ---------------------------------------------------------------
+# install.sh registers `uv_project` inside ~/.p10k.zsh, which survives p10k
+# theme upgrades (they never rewrite the config). But re-running `p10k
+# configure` regenerates that file and drops the registration. Until the
+# installer is run again, re-insert the segment for this session — only when
+# the config really lost it, and never after a `newline` element (that would
+# put the segment on prompt line 2).
+() {
+  typeset -a qs_rpe=("${(@)POWERLEVEL9K_RIGHT_PROMPT_ELEMENTS[@]}")
+  (( ${#qs_rpe[@]} )) || return 0
+  [[ -z "${qs_rpe[(r)uv_project]}" ]] || return 0
+
+  local i n
+  i="${qs_rpe[(i)virtualenv]}"
+  n="${qs_rpe[(i)newline]}"
+
+  if (( i >= 1 && i <= ${#qs_rpe[@]} )) && { (( n == 0 || n > ${#qs_rpe[@]} || i < n )); }; then
+    qs_rpe=("${(@)qs_rpe[1,i]}" uv_project "${(@)qs_rpe[i+1,-1]}")
+  elif (( n >= 1 && n <= ${#qs_rpe[@]} )); then
+    qs_rpe=("${(@)qs_rpe[1,n-1]}" uv_project "${(@)qs_rpe[n,-1]}")
+  else
+    qs_rpe+=(uv_project)
+  fi
+
+  POWERLEVEL9K_RIGHT_PROMPT_ELEMENTS=("${(@)qs_rpe[@]}")
+}

@@ -84,31 +84,47 @@ patch_p10k_zsh() {
         return 0
     fi
 
-    # Idempotent: element already present between the parens?
-    if awk -v s="$START" -v e="$END" \
-        'NR > s && NR < e && /^[[:space:]]*uv_project[,]?[[:space:]]*$/ { f = 1 }
-         END { exit !f }' "$CFG"; then
-        return 0
+    # Desired position: after the `virtualenv` element (element lines may
+    # carry trailing comments — real p10k-configure files always do), else
+    # before `newline` so we never land on prompt line 2, else before the
+    # closing paren.
+    local VLINE NLINE WANT
+    VLINE="$(awk -v s="$START" -v e="$END" \
+        'NR > s && NR < e && /^[[:space:]]*virtualenv([[:space:]]+#.*)?[[:space:]]*$/ { print NR; exit }' "$CFG")"
+    NLINE="$(awk -v s="$START" -v e="$END" \
+        'NR > s && NR < e && /^[[:space:]]*newline([[:space:]]+#.*)?[[:space:]]*$/ { print NR; exit }' "$CFG")"
+
+    if [[ -n "$VLINE" && ( -z "$NLINE" || "$VLINE" -lt "$NLINE" ) ]]; then
+        WANT="$VLINE"
+    elif [[ -n "$NLINE" ]]; then
+        WANT=$((NLINE - 1))
+    else
+        WANT=$((END - 1))
     fi
 
-    # Insert after the `virtualenv` element line; fall back to just before
-    # the closing paren when the config has no virtualenv element.
-    local VLINE
-    VLINE="$(awk -v s="$START" -v e="$END" \
-        'NR > s && NR < e && /^[[:space:]]*virtualenv[[:space:]]*$/ { print NR; exit }' "$CFG")"
-
-    local INS_AT="$VLINE"
-    [[ -n "$INS_AT" ]] || INS_AT=$((END - 1))
+    # Already registered in a good position (at or before WANT)? Anything
+    # later — e.g. an earlier install that dropped it after `newline` — is
+    # removed and re-inserted at WANT (self-healing).
+    local pos good=0 bad=0
+    for pos in $(awk -v s="$START" -v e="$END" \
+        'NR > s && NR < e && /^[[:space:]]*uv_project([[:space:]]+#.*)?[[:space:]]*$/ { print NR }' "$CFG"); do
+        if (( pos <= WANT )); then good=1; else bad=1; fi
+    done
+    if (( good )) && (( ! bad )); then
+        return 0
+    fi
 
     local PTMP
     PTMP="$(mktemp)"
     cp "$CFG" "$CFG.qs-backup.$(date +%Y%m%d-%H%M%S)"
-    {
-        head -n "$INS_AT" "$CFG"
-        printf '  uv_project\n'
-        tail -n +"$((INS_AT + 1))" "$CFG"
-    } > "$PTMP"
+    awk -v s="$START" -v e="$END" -v w="$WANT" '
+        {
+            if (NR > s && NR < e && /^[[:space:]]*uv_project([[:space:]]+#.*)?[[:space:]]*$/) next
+            print
+            if (NR == w) print "  uv_project"
+        }' "$CFG" > "$PTMP"
     cat "$PTMP" > "$CFG"   # through the original inode (keeps perms/ACLs)
+    rm -f "$PTMP"
     echo "   registered uv_project in ~/.p10k.zsh (backup: .p10k.zsh.qs-backup.*)"
 }
 

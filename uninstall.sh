@@ -56,11 +56,11 @@ if [[ -f "$P10KCFG" ]]; then
     P_START="$(grep -n 'POWERLEVEL9K_RIGHT_PROMPT_ELEMENTS=(' "$P10KCFG" | head -n 1 | cut -d: -f1 || true)"
     if [[ -n "$P_START" ]]; then
         P_END="$(awk -v s="$P_START" 'NR > s && /^[[:space:]]*\)/ { print NR; exit }' "$P10KCFG")"
-        if [[ -n "$P_END" ]] && grep -qE '^[[:space:]]*uv_project[,]?[[:space:]]*$' "$P10KCFG"; then
+        if [[ -n "$P_END" ]] && grep -qE '^[[:space:]]*uv_project([[:space:]]+#.*)?[[:space:]]*$' "$P10KCFG"; then
             cp "$P10KCFG" "$P10KCFG.bak.qs-uninstall"
             PTMP="$(mktemp)"
             awk -v s="$P_START" -v e="$P_END" '
-                NR > s && NR < e && /^[[:space:]]*uv_project[,]?[[:space:]]*$/ { next }
+                NR > s && NR < e && /^[[:space:]]*uv_project([[:space:]]+#.*)?[[:space:]]*$/ { next }
                 { print }
             ' "$P10KCFG" > "$PTMP"
             cat "$PTMP" > "$P10KCFG"
