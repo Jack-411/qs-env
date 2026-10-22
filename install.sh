@@ -53,6 +53,65 @@ fetch() {  # fetch <repo-relative-path> <dest>
     fi
 }
 
+# --- register the uv_project segment inside ~/.p10k.zsh ----------------------
+# Writes `uv_project` into the POWERLEVEL9K_RIGHT_PROMPT_ELEMENTS array
+# (right after `virtualenv`). This is the documented, reload-safe place for
+# it — no runtime array mutation anywhere. BSD-safe: awk gets numeric -v
+# values only; splicing is done with head/tail.
+patch_p10k_zsh() {
+    local CFG="$HOME/.p10k.zsh"
+    if [[ ! -f "$CFG" ]]; then
+        echo "   note: ~/.p10k.zsh not found; if you use p10k later, add"
+        echo "         'uv_project' to POWERLEVEL9K_RIGHT_PROMPT_ELEMENTS."
+        return 0
+    fi
+
+    local START
+    START="$(grep -n 'POWERLEVEL9K_RIGHT_PROMPT_ELEMENTS=(' "$CFG" | head -n 1 | cut -d: -f1 || true)"
+    if [[ -z "$START" ]]; then
+        echo "   note: no POWERLEVEL9K_RIGHT_PROMPT_ELEMENTS array found in"
+        echo "         ~/.p10k.zsh — add 'uv_project' to it manually."
+        return 0
+    fi
+
+    # Closing paren line of the array assignment (p10k-generated configs are
+    # multi-line: "typeset -g NAME=(\n  elem\n  ...\n)").
+    local END
+    END="$(awk -v s="$START" 'NR > s && /^[[:space:]]*\)/ { print NR; exit }' "$CFG")"
+    if [[ -z "$END" ]]; then
+        echo "   note: POWERLEVEL9K_RIGHT_PROMPT_ELEMENTS looks single-line or"
+        echo "         unparseable — add 'uv_project' to it manually."
+        return 0
+    fi
+
+    # Idempotent: element already present between the parens?
+    if awk -v s="$START" -v e="$END" \
+        'NR > s && NR < e && /^[[:space:]]*uv_project[,]?[[:space:]]*$/ { f = 1 }
+         END { exit !f }' "$CFG"; then
+        return 0
+    fi
+
+    # Insert after the `virtualenv` element line; fall back to just before
+    # the closing paren when the config has no virtualenv element.
+    local VLINE
+    VLINE="$(awk -v s="$START" -v e="$END" \
+        'NR > s && NR < e && /^[[:space:]]*virtualenv[[:space:]]*$/ { print NR; exit }' "$CFG")"
+
+    local INS_AT="$VLINE"
+    [[ -n "$INS_AT" ]] || INS_AT=$((END - 1))
+
+    local PTMP
+    PTMP="$(mktemp)"
+    cp "$CFG" "$CFG.qs-backup.$(date +%Y%m%d-%H%M%S)"
+    {
+        head -n "$INS_AT" "$CFG"
+        printf '  uv_project\n'
+        tail -n +"$((INS_AT + 1))" "$CFG"
+    } > "$PTMP"
+    cat "$PTMP" > "$CFG"   # through the original inode (keeps perms/ACLs)
+    echo "   registered uv_project in ~/.p10k.zsh (backup: .p10k.zsh.qs-backup.*)"
+}
+
 [[ -f "$ZSHRC" ]] || : > "$ZSHRC"
 
 # --- decide p10k integration -------------------------------------------------
@@ -79,6 +138,7 @@ cp "$STAGE/.qs" "$INSTALL_DIR/.qs"
 cp "$STAGE/.qs-version" "$INSTALL_DIR/.qs-version"
 if [[ "$P10K_MODE" == yes ]]; then
     cp "$STAGE/.p10k-custom.zsh" "$INSTALL_DIR/.p10k-custom.zsh"
+    patch_p10k_zsh
 fi
 
 # --- rewrite .zshrc ----------------------------------------------------------
