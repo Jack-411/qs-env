@@ -43,16 +43,19 @@ function prompt_uv_project() {
 }
 
 # Insert uv_project right after virtualenv in the right prompt (once).
+# Note: proper zsh array slicing is "${(@)arr[1,n]}". The bash-like
+# "${arr[@,n]}" form makes zsh evaluate "@" arithmetically and prints
+# "bad math expression"/"bad substitution" during shell startup.
 () {
   [[ -z "${POWERLEVEL9K_RIGHT_PROMPT_ELEMENTS[(r)uv_project]}" ]] || return
 
-  local idx=${POWERLEVEL9K_RIGHT_PROMPT_ELEMENTS[(i)virtualenv]}
+  local idx="${POWERLEVEL9K_RIGHT_PROMPT_ELEMENTS[(i)virtualenv]}"
 
-  if (( idx <= ${#POWERLEVEL9K_RIGHT_PROMPT_ELEMENTS[@]} )); then
+  if [[ "$idx" == <-> ]] && (( idx >= 1 && idx <= ${#POWERLEVEL9K_RIGHT_PROMPT_ELEMENTS[@]} )); then
     POWERLEVEL9K_RIGHT_PROMPT_ELEMENTS=(
-      "${POWERLEVEL9K_RIGHT_PROMPT_ELEMENTS[@,${idx}]}"
+      "${(@)POWERLEVEL9K_RIGHT_PROMPT_ELEMENTS[1,${idx}]}"
       uv_project
-      "${POWERLEVEL9K_RIGHT_PROMPT_ELEMENTS[@,$((idx + 1)),$]}"
+      "${(@)POWERLEVEL9K_RIGHT_PROMPT_ELEMENTS[$((idx + 1)),-1]}"
     )
   else
     POWERLEVEL9K_RIGHT_PROMPT_ELEMENTS+=(uv_project)
