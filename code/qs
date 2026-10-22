@@ -49,7 +49,6 @@ qs__activate_venv() {
     export VIRTUAL_ENV_NAME="$(basename "$VENV")"
     unset UV_PROJECT_ACTIVE UV_PROJECT_NAME UV_PROJECT_PYTHON UV_PROJECT_PATH
     echo "Activated venv '$VIRTUAL_ENV_NAME' (Python $(qs__get_python_version "$VENV"))"
-    p10k reload 2>/dev/null
 }
 
 qs__activate_uv_project() {
@@ -67,20 +66,17 @@ qs__activate_uv_project() {
     deactivate 2>/dev/null
 
     echo "Entered uv project '$UV_PROJECT_NAME' (Python $PYV)"
-    p10k reload 2>/dev/null
 }
 
 qs__exit_uv_project() {
     unset UV_PROJECT_ACTIVE UV_PROJECT_NAME UV_PROJECT_PYTHON UV_PROJECT_PATH
     cd ~
     echo "Exited uv project"
-    p10k reload 2>/dev/null
 }
 
 qs__exit_venv() {
     deactivate 2>/dev/null
     echo "Deactivated venv"
-    p10k reload 2>/dev/null
 }
 
 qs__doctor() {
