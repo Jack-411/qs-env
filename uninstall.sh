@@ -47,6 +47,30 @@ awk -v b="$MARK_BEGIN" -v e="$MARK_END" '
 
 cat "$TMP" > "$ZSHRC"
 
+# --- remove the uv_project element from ~/.p10k.zsh --------------------------
+# Only exact element lines (optional indent, optional trailing comma) that
+# sit INSIDE the POWERLEVEL9K_RIGHT_PROMPT_ELEMENTS=( ... ) block — never a
+# comment, colour setting, or anything else that merely mentions uv_project.
+P10KCFG="$HOME/.p10k.zsh"
+if [[ -f "$P10KCFG" ]]; then
+    P_START="$(grep -n 'POWERLEVEL9K_RIGHT_PROMPT_ELEMENTS=(' "$P10KCFG" | head -n 1 | cut -d: -f1 || true)"
+    if [[ -n "$P_START" ]]; then
+        P_END="$(awk -v s="$P_START" 'NR > s && /^[[:space:]]*\)/ { print NR; exit }' "$P10KCFG")"
+        if [[ -n "$P_END" ]] && grep -qE '^[[:space:]]*uv_project[,]?[[:space:]]*$' "$P10KCFG"; then
+            cp "$P10KCFG" "$P10KCFG.bak.qs-uninstall"
+            PTMP="$(mktemp)"
+            awk -v s="$P_START" -v e="$P_END" '
+                NR > s && NR < e && /^[[:space:]]*uv_project[,]?[[:space:]]*$/ { next }
+                { print }
+            ' "$P10KCFG" > "$PTMP"
+            cat "$PTMP" > "$P10KCFG"
+            rm -f "$PTMP"
+            echo "  removed uv_project from ~/.p10k.zsh (backup: .p10k.zsh.bak.qs-uninstall)"
+            echo "  note: uv_project colour settings (if any) left untouched — harmless."
+        fi
+    fi
+fi
+
 echo "Uninstallation complete."
 echo "Backup of your .zshrc saved as ~/.zshrc.bak.qs-uninstall"
 echo "Restart your shell to apply changes."
