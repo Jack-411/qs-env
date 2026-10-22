@@ -1,159 +1,152 @@
-qs() {
-    local CONFIG_FILE="$HOME/.qs_default"
+# qs — lightweight python environment helper (shell function)
+# Sourced from ~/.qs/.qs; all internals use the qs__ prefix so nothing
+# collides with your own commands.
 
-    local DEFAULT_PATH=""
-    [[ -f "$CONFIG_FILE" ]] && DEFAULT_PATH="$(< "$CONFIG_FILE")"
+qs__is_uv_project() {
+    [[ -f "$1/pyproject.toml" && -f "$1/.venv/bin/python" ]]
+}
 
-    [[ -z "$DEFAULT_PATH" ]] && DEFAULT_PATH="$HOME/uv-global"
+qs__get_python_version() {
+    local PROJ="$1"
+    PROJ="$(cd "$PROJ" 2>/dev/null && pwd)"
+    local VENV="$PROJ/.venv"
 
-    is_uv_project() {
-        [[ -f "$1/pyproject.toml" && -f "$1/.venv/bin/python" ]]
-    }
+    if [[ -x "$VENV/bin/python" ]]; then
+        "$VENV/bin/python" --version 2>/dev/null | awk '{print $2}'
+        return
+    fi
 
-    get_python_version() {
-        local PROJ="$1"
+    if [[ -x "$VENV/bin/python3" ]]; then
+        "$VENV/bin/python3" --version 2>/dev/null | awk '{print $2}'
+        return
+    fi
 
-        PROJ="$(cd "$PROJ" 2>/dev/null && pwd)"
-        local VENV="$PROJ/.venv"
+    if command -v uv >/dev/null 2>&1; then
+        (cd "$PROJ" && uv run python --version 2>/dev/null) | awk '{print $2}'
+        return
+    fi
 
-        if [[ -x "$VENV/bin/python" ]]; then
-            "$VENV/bin/python" --version 2>/dev/null | awk '{print $2}'
-            return
-        fi
+    echo "unknown"
+}
 
-        if [[ -x "$VENV/bin/python3" ]]; then
-            "$VENV/bin/python3" --version 2>/dev/null | awk '{print $2}'
-            return
-        fi
+# Expand ~ and make relative paths absolute so the stored default works
+# from any directory.
+qs__resolve_path() {
+    local p="$1"
+    case "$p" in
+        "~")    p="$HOME" ;;
+        "~/"*)  p="$HOME/${p#\~/}" ;;
+        /*)     : ;;
+        *)      p="$PWD/$p" ;;
+    esac
+    printf '%s' "${p%/}"
+}
 
-        if command -v uv >/dev/null 2>&1; then
-            (cd "$PROJ" && uv run python --version 2>/dev/null) | awk '{print $2}'
-            return
-        fi
+qs__activate_venv() {
+    local VENV="$1"
+    deactivate 2>/dev/null
+    source "$VENV/bin/activate"
+    export VIRTUAL_ENV_NAME="$(basename "$VENV")"
+    unset UV_PROJECT_ACTIVE UV_PROJECT_NAME UV_PROJECT_PYTHON UV_PROJECT_PATH
+    echo "Activated venv '$VIRTUAL_ENV_NAME' (Python $(qs__get_python_version "$VENV"))"
+    p10k reload 2>/dev/null
+}
 
-        echo "unknown"
-    }
+qs__activate_uv_project() {
+    local PROJ="$1"
+    local ABS_PROJ="$(cd "$PROJ" 2>/dev/null && pwd)"
+    local PYV="$(qs__get_python_version "$ABS_PROJ")"
 
-    activate_venv() {
-        local VENV="$1"
-        deactivate 2>/dev/null
-        source "$VENV/bin/activate"
-        export VIRTUAL_ENV_NAME="$(basename "$VENV")"
-        unset UV_PROJECT_ACTIVE UV_PROJECT_NAME UV_PROJECT_PYTHON UV_PROJECT_PATH
-        echo "Activated venv '$VIRTUAL_ENV_NAME' (Python $(get_python_version "$VENV"))"
-        p10k reload 2>/dev/null
-    }
+    cd "$ABS_PROJ" || return
 
-    activate_uv_project() {
-        local PROJ="$1"
-    
-        local ABS_PROJ="$(cd "$PROJ" 2>/dev/null && pwd)"
-        local PYV="$(get_python_version "$ABS_PROJ")"
-    
-        cd "$ABS_PROJ" || return
-    
-        export UV_PROJECT_ACTIVE=1
-        export UV_PROJECT_NAME="$(basename "$ABS_PROJ")"
-        export UV_PROJECT_PYTHON="$PYV"
-        export UV_PROJECT_PATH="$ABS_PROJ"
-    
-        deactivate 2>/dev/null
-    
-        echo "Entered uv project '$UV_PROJECT_NAME' (Python $PYV)"
-        p10k reload 2>/dev/null
-    }
+    export UV_PROJECT_ACTIVE=1
+    export UV_PROJECT_NAME="$(basename "$ABS_PROJ")"
+    export UV_PROJECT_PYTHON="$PYV"
+    export UV_PROJECT_PATH="$ABS_PROJ"
 
-    exit_uv_project() {
-        unset UV_PROJECT_ACTIVE UV_PROJECT_NAME UV_PROJECT_PYTHON UV_PROJECT_PATH
-        cd ~
-        echo "Exited uv project"
-        p10k reload 2>/dev/null
-    }
+    deactivate 2>/dev/null
 
-    exit_venv() {
-        deactivate 2>/dev/null
-        echo "Deactivated venv"
-        p10k reload 2>/dev/null
-    }
+    echo "Entered uv project '$UV_PROJECT_NAME' (Python $PYV)"
+    p10k reload 2>/dev/null
+}
 
-    qs_doctor() {
-        local GREEN="\033[32m"
-        local RED="\033[31m"
-        local YELLOW="\033[33m"
-        local BLUE="\033[34m"
-        local RESET="\033[0m"
+qs__exit_uv_project() {
+    unset UV_PROJECT_ACTIVE UV_PROJECT_NAME UV_PROJECT_PYTHON UV_PROJECT_PATH
+    cd ~
+    echo "Exited uv project"
+    p10k reload 2>/dev/null
+}
 
-        echo -e "${BLUE}Running qs doctor...${RESET}"
-        echo ""
+qs__exit_venv() {
+    deactivate 2>/dev/null
+    echo "Deactivated venv"
+    p10k reload 2>/dev/null
+}
 
-        if [[ -d "$HOME/.qs" ]]; then
-            echo -e "${GREEN}✓ ~/.qs directory exists${RESET}"
-        else
-            echo -e "${RED}✗ ~/.qs directory missing${RESET}"
-        fi
+qs__doctor() {
+    local GREEN="\033[32m"
+    local RED="\033[31m"
+    local YELLOW="\033[33m"
+    local BLUE="\033[34m"
+    local RESET="\033[0m"
 
-        if [[ -f "$HOME/.qs/.qs" ]]; then
-            echo -e "${GREEN}✓ ~/.qs/.qs found${RESET}"
-        else
-            echo -e "${RED}✗ ~/.qs/.qs missing${RESET}"
-        fi
+    echo -e "${BLUE}Running qs doctor...${RESET}"
+    echo ""
 
-        if [[ -f "$HOME/.qs/.qs-version" ]]; then
-            echo -e "${GREEN}✓ Version file found: $(cat "$HOME/.qs/.qs-version")${RESET}"
-        else
-            echo -e "${RED}✗ Version file missing${RESET}"
-        fi
+    if [[ -d "$HOME/.qs" ]]; then
+        echo -e "${GREEN}✓ ~/.qs directory exists${RESET}"
+    else
+        echo -e "${RED}✗ ~/.qs directory missing${RESET}"
+    fi
 
-        if grep -Fq '[[ -f ~/.qs/.qs ]] && source ~/.qs/.qs' "$HOME/.zshrc"; then
-            echo -e "${GREEN}✓ .zshrc contains qs source line${RESET}"
-        else
-            echo -e "${RED}✗ .zshrc does not contain qs source line${RESET}"
-        fi
+    if [[ -f "$HOME/.qs/.qs" ]]; then
+        echo -e "${GREEN}✓ ~/.qs/.qs found${RESET}"
+    else
+        echo -e "${RED}✗ ~/.qs/.qs missing${RESET}"
+    fi
 
-        if command -v python3 >/dev/null 2>&1; then
-            echo -e "${GREEN}✓ python3 available: $(python3 --version)${RESET}"
-        else
-            echo -e "${RED}✗ python3 not found${RESET}"
-        fi
+    if [[ -f "$HOME/.qs/.qs-version" ]]; then
+        echo -e "${GREEN}✓ Version file found: $(cat "$HOME/.qs/.qs-version")${RESET}"
+    else
+        echo -e "${RED}✗ Version file missing${RESET}"
+    fi
 
-        if command -v uv >/dev/null 2>&1; then
-            echo -e "${GREEN}✓ uv available: $(uv --version | head -n 1)${RESET}"
-        else
-            echo -e "${YELLOW}⚠ uv not found (optional)${RESET}"
-        fi
+    if grep -Fq '[[ -f ~/.qs/.qs ]] && source ~/.qs/.qs' "$HOME/.zshrc" 2>/dev/null; then
+        echo -e "${GREEN}✓ .zshrc contains qs source line${RESET}"
+    else
+        echo -e "${RED}✗ .zshrc does not contain qs source line${RESET}"
+    fi
 
-        if [[ -n "$VIRTUAL_ENV" ]]; then
-            echo -e "${GREEN}✓ Active environment detected:${RESET} $VIRTUAL_ENV"
+    if command -v python3 >/dev/null 2>&1; then
+        echo -e "${GREEN}✓ python3 available: $(python3 --version)${RESET}"
+    else
+        echo -e "${RED}✗ python3 not found${RESET}"
+    fi
 
-            if [[ -f "$VIRTUAL_ENV/pyvenv.cfg" ]]; then
-                echo -e "${BLUE}  → Classical venv detected${RESET}"
+    if command -v uv >/dev/null 2>&1; then
+        echo -e "${GREEN}✓ uv available: $(uv --version | head -n 1)${RESET}"
+    else
+        echo -e "${YELLOW}⚠ uv not found (optional)${RESET}"
+    fi
 
-                [[ -f "$VIRTUAL_ENV/bin/activate" ]] \
-                    && echo -e "${GREEN}    ✓ activate script present${RESET}" \
-                    || echo -e "${RED}    ✗ activate script missing${RESET}"
+    if [[ -n "$VIRTUAL_ENV" ]]; then
+        echo -e "${GREEN}✓ Active environment detected:${RESET} $VIRTUAL_ENV"
 
-                [[ -x "$VIRTUAL_ENV/bin/python" ]] \
-                    && echo -e "${GREEN}    ✓ python binary present${RESET}" \
-                    || echo -e "${RED}    ✗ python binary missing${RESET}"
-            fi
+        if [[ -f "$VIRTUAL_ENV/pyvenv.cfg" ]]; then
+            echo -e "${BLUE}  → Classical venv detected${RESET}"
+
+            [[ -f "$VIRTUAL_ENV/bin/activate" ]] \
+                && echo -e "${GREEN}    ✓ activate script present${RESET}" \
+                || echo -e "${RED}    ✗ activate script missing${RESET}"
+
+            [[ -x "$VIRTUAL_ENV/bin/python" ]] \
+                && echo -e "${GREEN}    ✓ python binary present${RESET}" \
+                || echo -e "${RED}    ✗ python binary missing${RESET}"
 
             if command -v uv >/dev/null 2>&1; then
-                local UV_PY=$(uv python --version 2>/dev/null | awk '{print $2}')
-                local VENV_PY=$(grep -E "^version" "$VIRTUAL_ENV/pyvenv.cfg" 2>/dev/null | awk -F' = ' '{print $2}')
-
-                if [[ -n "$UV_PY" && -n "$VENV_PY" ]]; then
-                    if [[ "$UV_PY" == "$VENV_PY" ]]; then
-                        echo -e "${GREEN}    ✓ uv python version matches environment${RESET}"
-                    else
-                        echo -e "${YELLOW}    ⚠ uv python version mismatch${RESET}"
-                        echo -e "${YELLOW}      uv expects: $UV_PY${RESET}"
-                        echo -e "${YELLOW}      env has:    $VENV_PY${RESET}"
-                        echo -e "${YELLOW}      → Run: uv sync${RESET}"
-                    fi
-                fi
-
-                local SITE_PKGS=$(python3 -c "import site; print(site.getsitepackages()[0])" 2>/dev/null)
-                if [[ -d "$SITE_PKGS" ]]; then
+                local SITE_PKGS
+                SITE_PKGS=$("$VIRTUAL_ENV/bin/python" -c "import site; print(site.getsitepackages()[0])" 2>/dev/null)
+                if [[ -n "$SITE_PKGS" && -d "$SITE_PKGS" ]]; then
                     if [[ -z "$(ls -A "$SITE_PKGS")" ]]; then
                         echo -e "${YELLOW}    ⚠ site-packages empty — environment may not be synced${RESET}"
                         echo -e "${YELLOW}      → Run: uv sync${RESET}"
@@ -162,18 +155,38 @@ qs() {
                     fi
                 fi
             fi
-
-        else
-            echo -e "${YELLOW}ℹ No active environment${RESET}"
         fi
 
-        echo ""
-        echo -e "${BLUE}qs doctor completed.${RESET}"
-    }
+        if [[ -n "$UV_PROJECT_PATH" && -f "$UV_PROJECT_PATH/.python-version" ]]; then
+            local PINNED ACTUAL
+            PINNED="$(tr -d '[:space:]' < "$UV_PROJECT_PATH/.python-version")"
+            ACTUAL="$(qs__get_python_version "$UV_PROJECT_PATH")"
+            if [[ -n "$PINNED" && -n "$ACTUAL" && "$ACTUAL" != "unknown" \
+                  && "$ACTUAL" != "$PINNED"* && "$PINNED" != "$ACTUAL"* ]]; then
+                echo -e "${YELLOW}    ⚠ uv project python mismatch${RESET}"
+                echo -e "${YELLOW}      pinned: $PINNED  actual: $ACTUAL${RESET}"
+                echo -e "${YELLOW}      → Run: uv sync${RESET}"
+            fi
+        fi
+    else
+        echo -e "${YELLOW}ℹ No active environment${RESET}"
+    fi
+
+    echo ""
+    echo -e "${BLUE}qs doctor completed.${RESET}"
+}
+
+qs() {
+    local CONFIG_FILE="$HOME/.qs_default"
+
+    local DEFAULT_PATH=""
+    [[ -f "$CONFIG_FILE" ]] && DEFAULT_PATH="$(< "$CONFIG_FILE")"
+
+    [[ -z "$DEFAULT_PATH" ]] && DEFAULT_PATH="$HOME/uv-global"
 
     if [[ "$1" == "--version" || "$1" == "-v" ]]; then
-        VERSION_FILE="$HOME/.qs/.qs-version"
-        if [[ -f "$VERSION_FILE" ]]; then
+        local VERSION_FILE="$HOME/.qs/.qs-version"
+        if [[ -s "$VERSION_FILE" ]]; then
             echo "qs $(cat "$VERSION_FILE")"
         else
             echo "qs version: unknown (version file missing)"
@@ -181,11 +194,11 @@ qs() {
         return 0
     fi
 
-    if [[ "$1" == "-help" ]]; then
+    if [[ "$1" == "help" || "$1" == "-help" || "$1" == "--help" || "$1" == "-h" ]]; then
         cat <<EOF
 qs                         # toggle uv/venv or enter default
 qs default                 # show current default path
-qs --set default <name>    # set/change default path
+qs --set default <path>    # set/change default path
 qs list                    # list all venv and uv projects
 qs doctor                  # diagnose qs installation and environments
 qs <name>                  # activate venv or enter uv project
@@ -194,16 +207,18 @@ EOF
     fi
 
     if [[ "$1" == "doctor" ]]; then
-        qs_doctor
+        qs__doctor
         return 0
     fi
 
     if [[ "$1" == "default" ]]; then
-        if is_uv_project "$DEFAULT_PATH"; then
-            local PYV="$(get_python_version "$DEFAULT_PATH")"
+        if qs__is_uv_project "$DEFAULT_PATH"; then
+            local PYV
+            PYV="$(qs__get_python_version "$DEFAULT_PATH")"
             echo "Default path: $DEFAULT_PATH  (uv project, Python $PYV)"
         elif [[ -f "$DEFAULT_PATH/bin/activate" ]]; then
-            local PYV="$(get_python_version "$DEFAULT_PATH")"
+            local PYV
+            PYV="$(qs__get_python_version "$DEFAULT_PATH")"
             echo "Default path: $DEFAULT_PATH  (venv, Python $PYV)"
         else
             echo "Default path: $DEFAULT_PATH  (not a venv or uv project)"
@@ -216,17 +231,20 @@ EOF
             echo "Usage: qs --set default <path>"
             return
         fi
-        echo "$3" > "$CONFIG_FILE"
-        if is_uv_project "$3"; then
-            local PYV="$(get_python_version "$3")"
-            echo "Default path set to: $3  (uv project, Python $PYV)"
-        elif [[ -f "$3/bin/activate" ]]; then
-            local PYV="$(get_python_version "$3")"
-            echo "Default path set to: $3  (venv, Python $PYV)"
+        local RESOLVED
+        RESOLVED="$(qs__resolve_path "$3")"
+        echo "$RESOLVED" > "$CONFIG_FILE"
+        if qs__is_uv_project "$RESOLVED"; then
+            local PYV
+            PYV="$(qs__get_python_version "$RESOLVED")"
+            echo "Default path set to: $RESOLVED  (uv project, Python $PYV)"
+        elif [[ -f "$RESOLVED/bin/activate" ]]; then
+            local PYV
+            PYV="$(qs__get_python_version "$RESOLVED")"
+            echo "Default path set to: $RESOLVED  (venv, Python $PYV)"
         else
-            echo "Default path set to: $3  (not a venv or uv project)"
+            echo "Default path set to: $RESOLVED  (not a venv or uv project)"
         fi
-
         return
     fi
 
@@ -234,32 +252,32 @@ EOF
         echo "venv environments:"
         for d in "$HOME"/*/; do
             [[ -f "$d/bin/activate" ]] && \
-                echo "  $(basename "$d")  (Python $(get_python_version "$d"))"
+                echo "  $(basename "$d")  (Python $(qs__get_python_version "$d"))"
         done
         echo ""
         echo "uv projects:"
         for d in "$HOME"/*/; do
-            is_uv_project "$d" && \
-                echo "  $(basename "$d")  (Python $(get_python_version "$d/.venv"))"
+            qs__is_uv_project "$d" && \
+                echo "  $(basename "$d")  (Python $(qs__get_python_version "$d"))"
         done
         return 0
     fi
 
     if [[ $# -eq 0 ]]; then
         if [[ -n "$UV_PROJECT_ACTIVE" ]]; then
-            exit_uv_project
+            qs__exit_uv_project
             return
         fi
         if [[ -n "$VIRTUAL_ENV" ]]; then
-            exit_venv
+            qs__exit_venv
             return
         fi
-        if is_uv_project "$DEFAULT_PATH"; then
-            activate_uv_project "$DEFAULT_PATH"
+        if qs__is_uv_project "$DEFAULT_PATH"; then
+            qs__activate_uv_project "$DEFAULT_PATH"
             return
         fi
         if [[ -f "$DEFAULT_PATH/bin/activate" ]]; then
-            activate_venv "$DEFAULT_PATH"
+            qs__activate_venv "$DEFAULT_PATH"
             return
         fi
         echo "Default path '$DEFAULT_PATH' is not a venv or uv project"
@@ -279,10 +297,10 @@ EOF
         return
     fi
 
-    if is_uv_project "$TARGET"; then
-        activate_uv_project "$TARGET"
+    if qs__is_uv_project "$TARGET"; then
+        qs__activate_uv_project "$TARGET"
     elif [[ -f "$TARGET/bin/activate" ]]; then
-        activate_venv "$TARGET"
+        qs__activate_venv "$TARGET"
     else
         echo "'$TARGET' is not a venv or uv project"
     fi

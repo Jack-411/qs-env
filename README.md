@@ -4,115 +4,95 @@ A lightweight python environment helper for macOS that installs:
 
 - A hidden shell function file: `~/.qs/.qs`
 - An optional Powerlevel10k custom segment: `~/.qs/.p10k-custom.zsh`
-- Automatic sourcing lines in your `~/.zshrc` (placed safely after the last p10k‑related line)
+- A **managed block** in your `~/.zshrc` (placed after your last p10k‑related line, or at the end)
 
-The goal is to provide a clean, reproducible, folder‑based environment setup that users can install or remove with a simple double‑click.
-
----
-
-## 🚀 Features
-
-- Double‑click installation using `install.command`
-- Double‑click uninstallation using `uninstall.command`
-- Installs everything into a dedicated folder: `~/.qs/`
-- Adds sourcing lines to `.zshrc` in the correct location
-- Optional Powerlevel10k integration for uv project
-- Fully macOS‑compatible (Finder‑safe)
-- Idempotent — running it multiple times will **not** duplicate lines
+The goal is a clean, reproducible, folder‑based environment setup that installs and uninstalls in one step, from any Mac.
 
 ---
 
-## 📥 Installation
+## 🚀 One‑click install (recommended)
 
-### 1. Download or clone the repository
-
-### 2. Make the installer executable (only needed once)
+Open Terminal and run:
 
 ```bash
-chmod +x install.command
+curl -fsSL https://raw.githubusercontent.com/Jack-411/qs-env/main/install.sh | bash
 ```
 
-### 3. Double-click install.command in Finder
+That's it — no downloads to approve, no `chmod`, no Gatekeeper prompts, no permissions to fiddle with. Then open a new terminal and run `qs help`.
 
-This will:
-- Create `~/.qs/`
-- Install `.qs` (always)
-- Ask whether to install `.p10k-custom.zsh`
-- Insert sourcing lines into your `.zshrc` **after** the last p10k‑related line
+Options:
 
-### 4. Restart your terminal
+```bash
+# force on/off the p10k segment (default: auto — only if your .zshrc uses p10k)
+curl -fsSL .../install.sh | QS_ENV_P10K=yes bash
+curl -fsSL .../install.sh | QS_ENV_P10K=no  bash
+```
+
+### 🧹 Uninstall (one line)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Jack-411/qs-env/main/uninstall.sh | bash
+```
+
+Removes `~/.qs/` and **only** the exact lines qs-env added to your `.zshrc` — never anything that merely contains "qs". A backup is saved as `~/.zshrc.bak.qs-uninstall`.
+
+---
+
+## 🖱 Double‑click install (Finder)
+
+The `macOS/` folder also contains `install.command` / `uninstall.command` for double‑clicking.
+
+> **About the macOS security prompt.** Files downloaded in a browser carry a *quarantine* flag, and macOS blocks unsigned scripts from launching with a plain double‑click — that's Gatekeeper, and no `.command` file can dodge it without a paid Apple Developer signature. The one‑time workaround: **right‑click → Open → Open**. (Installing via the `curl` one‑liner above never hits this at all, which is why it's the recommended path. `git clone` downloads also never set the quarantine flag.)
 
 ---
 
 ## 🧩 What gets added to .zshrc
 
-Depending on your choices, the installer adds:
 ```bash
-[[ -f ~/.qs/.p10k-custom.zsh ]] && source ~/.qs/.p10k-custom.zsh
+# >>> qs-env >>>
 [[ -f ~/.qs/.qs ]] && source ~/.qs/.qs
+[[ -f ~/.qs/.p10k-custom.zsh ]] && source ~/.qs/.p10k-custom.zsh
+# <<< qs-env <<<
 ```
 
-These lines are inserted immediately **after** the last line containing `p10k` in your `.zshrc`.
-
----
-
-## 🧹 Uninstallation
-
-### 1. Make the uninstaller executable (only needed once)
-
-```bash
-chmod +x uninstall.command
-```
-
-### 2. Double‑click uninstall.command in Finder
-
-This will:
-- Remove the entire `~/.qs/ directory`
-- Remove legacy files (`~/.qs`, `~/.qs_default`, `~/.p10k-custom.zsh`)
-- Remove all related lines from `.zshrc`
-- Save a backup as:
-```bash
-~/.zshrc.bak.qs-uninstall
-```
-
-### 3. Restart your terminal
+The block between the markers is *owned by qs-env*: reinstalling rewrites it in place (never duplicates), uninstalling removes exactly it. A timestamped backup of your `.zshrc` is taken before every install.
 
 ---
 
 ## 🧑‍💻 Usage
 
-After installation, the `qs` function becomes available in every new terminal session.
+After installation, the `qs` function is available in every new terminal session.
 
 qs currently supports:
 
 - Classical Python `venv`
 - `uv` projects
 
-### 1. Entre a uv project or activate a venv
+### 1. Enter a uv project or activate a venv
 
 ```bash
 qs <name>
 ```
 
-if `qs` is run without a name, it will go to the default name, this can be changed via:
+If `qs` is run without a name, it goes to the default project; change it with:
 
 ```bash
-qs --set default <name>
+qs --set default <path>     # ~ and relative paths are expanded and stored absolute
 ```
 
-### 2. To see all the names
+### 2. See all names
 
 ```bash
 qs list
 ```
 
-### 3. To see the full usage detail
+### 3. Full usage detail
 
 ```bash
 qs help
 ```
 
-### 4. To check the qs environment
+### 4. Check the qs environment
 
 ```bash
 qs doctor
@@ -126,6 +106,7 @@ After installation:
 ```bash
 ~/.qs/
     .qs
+    .qs-version
     .p10k-custom.zsh   (optional)
 ```
 
@@ -133,33 +114,25 @@ After installation:
 
 ## 💡 Notes
 
-- The installer is designed specifically for macOS and uses `.command` files so users can install by double‑clicking.
-- The `.zshrc` insertion logic is robust: it always finds the last p10k‑related line and inserts your lines directly after it.
-- The uninstaller removes everything cleanly and safely.
+- The installer writes only inside `~/.qs/` and the managed block in `~/.zshrc`.
+- Idempotent — running it multiple times re-writes the managed block, never duplicates lines.
+- Works on stock macOS `/bin/bash` (3.2) — no Homebrew prerequisites.
 
 ---
 
 ## 🧭 Troubleshooting
 
-### The installer did not add lines to .zshrc
+### `qs: command not found`
 
-Check that:
-- Your `.zshrc` contains at least one line referencing p10k
-- The file is writable
-- You restarted your terminal
+Open a new terminal, or `source ~/.zshrc`. Then `qs doctor` will tell you exactly what's wrong.
 
-If you do **not** use p10k, manually add the line to `zshrc`:
-```bash
-[[ -f ~/.qs/.qs ]] && source ~/.qs/.qs
-```
+### The managed block is missing from .zshrc
+
+Re-run the installer, or add the two lines above manually.
 
 ### The custom p10k segment does not show up
 
-Run:
-```bash
-source ~/.zshrc
-```
-Or restart your terminal
+`source ~/.zshrc` or restart the terminal; check `qs doctor`.
 
 ---
 
