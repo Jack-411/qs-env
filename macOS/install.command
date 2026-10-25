@@ -9,4 +9,4 @@ if xattr -p com.apple.quarantine "$(pwd)/macOS/$(basename "$0")" >/dev/null 2>&1
     xattr -dr com.apple.quarantine "$(pwd)" 2>/dev/null || true
 fi
 
-exec /bin/bash install.sh "$@"
+exec /bin/bash macOS/install.sh "$@"

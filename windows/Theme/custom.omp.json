@@ -170,7 +170,7 @@
           "style": "powerline",
           "background": "#FFDF00",
           "foreground": "#44536E",
-          "template": "  {{ .Env.UV_PROJECT_NAME }} ({{ .Env.UV_PROJECT_PYTHON }}) "
+          "template": "{{ if .Env.UV_PROJECT_NAME }}  {{ .Env.UV_PROJECT_NAME }} ({{ .Env.UV_PROJECT_PYTHON }}) {{ end }}"
         },
         {
           "background": "#1BD760",

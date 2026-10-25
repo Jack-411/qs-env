@@ -1,85 +1,37 @@
 # 📦 qs-env
 
-A lightweight python environment helper for macOS and Windows that installs:
+A lightweight Python environment helper — one `qs` command to jump into and out of **venv**s and **uv** projects, with a prompt indicator for the active uv project.
 
-- A hidden shell function file: `~/.qs/.qs`
-- An optional Powerlevel10k custom segment: `~/.qs/.p10k-custom.zsh`
-- A **managed block** in your `~/.zshrc` (placed after your last p10k‑related line, or at the end)
+- 🍎 **macOS / 🐧 Linux** — zsh function + optional **Powerlevel10k** segment (`macOS/`, `code/`)
+- 🪟 **Windows** — PowerShell function + optional **Oh My Posh** segment (`windows/`)
 
-The goal is a clean, reproducible, folder‑based environment setup that installs and uninstalls in one step, from any Mac.
+Installs and uninstalls in one step on every platform. Both installers own only a *managed block* in your shell config — rewritten in place, never duplicated, removed exactly on uninstall.
 
 ---
 
-## 🚀 One‑click install (recommended)
+## 🚀 Install
 
-Open Terminal and run:
+### macOS / Linux (zsh)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Jack-411/qs-env/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Jack-411/qs-env/main/macOS/install.sh | bash
 ```
 
 Options:
 
 ```bash
 # force on/off the p10k segment (default: auto — only if your .zshrc uses p10k)
-curl -fsSL .../install.sh | QS_ENV_P10K=yes bash
-curl -fsSL .../install.sh | QS_ENV_P10K=no  bash
-```
-
-### 🧹 Uninstall (one line)
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/Jack-411/qs-env/main/uninstall.sh | bash
-```
-
-Removes `~/.qs/` and **only** the exact lines qs-env added to your `.zshrc` — never anything that merely contains "qs". A backup is saved as `~/.zshrc.bak.qs-uninstall`.
-
----
-
-## 🖱 Double‑click install (Finder)
-
-The `macOS/` folder also contains `install.command` / `uninstall.command` for double‑clicking.
-
-> **About the macOS security prompt.** Files downloaded in a browser carry a *quarantine* flag, and macOS blocks unsigned scripts from launching with a plain double‑click — that's Gatekeeper, and no `.command` file can dodge it without a paid Apple Developer signature. The one‑time workaround: **right‑click → Open → Open**. (Installing via the `curl` one‑liner above never hits this at all, which is why it's the recommended path. `git clone` downloads also never set the quarantine flag.)
-
----
-
-## 🪟 Windows (PowerShell)
-
-Same `qs` features as macOS/Linux — toggle/enter projects, `qs <name>`, `qs list`, `qs default`, `qs --set default <path>`, `qs doctor`, `qs help` — implemented as a PowerShell function (`windows/qs.ps1`).
-
-From PowerShell:
-
-```powershell
-& ([scriptblock]::Create((irm https://raw.githubusercontent.com/Jack-411/qs-env/main/windows/install.ps1)))
-
-# optionally also install the bundled Oh My Posh theme (needs the oh-my-posh CLI):
-& ([scriptblock]::Create((irm .../windows/install.ps1))) -WithTheme
+curl -fsSL .../macos/install.sh | QS_ENV_P10K=yes bash
+curl -fsSL .../macos/install.sh | QS_ENV_P10K=no  bash
 ```
 
 Uninstall:
 
-```powershell
-& ([scriptblock]::Create((irm https://raw.githubusercontent.com/Jack-411/qs-env/main/windows/uninstall.ps1)))
+```bash
+curl -fsSL https://raw.githubusercontent.com/Jack-411/qs-env/main/macOS/uninstall.sh | bash
 ```
 
-Installs to `~\.qs\` and manages a `# >>> qs-env >>> … # <<< qs-env <<<` block in your PowerShell `$PROFILE` — rewritten in place, never duplicated, timestamped backup before every change, and uninstall removes exactly the block (never anything that merely contains "qs").
-
-**Prompt policy (same philosophy as the p10k segment on macOS): qs-env never takes over your prompt.** With `-WithTheme`, the theme file (your Oh My Posh config + a yellow `uv_project` segment that shows only when qs is *inside* a uv project — venvs already have the built-in `python` segment) is installed to `~\.qs\Theme\custom.omp.json`. If your profile already initialises Oh My Posh, qs-env detects it, changes nothing, and just tells you where the theme file is; an init line is added only when you have none.
-
-### Project search
-
-Search order for `qs <name>`:
-1. `$HOME` and the current directory (one level — instant, like the shell version)
-2. Deep-scan cache (`~\.qs\.qs-index.json`, refreshed automatically)
-3. Extra roots you added: `qs --add root D:\projects` (depth-limited recursive search; `qs roots`, `qs --remove root`, `qs list` includes them, `qs list --all` scans every fixed drive)
-4. Last resort: every fixed drive, depth-limited with system folders excluded — so projects on `D:`, `E:` … are found even when someone keeps them outside your home. `qs rehash` clears the cache.
-
-Windows notes: venvs are detected via `Scripts\Activate.ps1` (the old `D:\` hardcoded search is gone — see Project search above); `uv` is optional but recommended.
-
----
-
-## 🧩 What gets added to .zshrc
+Installs `~/.qs/.qs` (+ optional `~/.qs/.p10k-custom.zsh`) and a managed block in `~/.zshrc`, placed after your last p10k-related line:
 
 ```bash
 # >>> qs-env >>>
@@ -88,86 +40,94 @@ Windows notes: venvs are detected via `Scripts\Activate.ps1` (the old `D:\` hard
 # <<< qs-env <<<
 ```
 
-The block between the markers is *owned by qs-env*: reinstalling rewrites it in place (never duplicates), uninstalling removes exactly it. A timestamped backup of your `.zshrc` is taken before every install.
+The p10k segment is the *only* prompt change, and only when p10k is detected — your prompt theme is never otherwise touched. Uninstall removes `~/.qs/` and exactly the managed lines (backup: `~/.zshrc.bak.qs-uninstall`).
+
+> 🖱 **Double-click (Finder):** `macOS/install.command` / `uninstall.command` work too. Because browsers quarantine unsigned downloads, the first run needs **right-click → Open → Open** (Gatekeeper — no unsigned `.command` can skip this). The `curl` one-liner never triggers it, and `git clone` downloads are never quarantined.
+
+### Windows (PowerShell 5.1 / 7)
+
+```powershell
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/Jack-411/qs-env/main/windows/install.ps1)))
+
+# optionally also place the bundled Oh My Posh theme:
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/Jack-411/qs-env/main/windows/install.ps1))) -WithTheme
+```
+
+Uninstall:
+
+```powershell
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/Jack-411/qs-env/main/windows/uninstall.ps1)))
+```
+
+Installs to `~\.qs\` and manages a `# >>> qs-env >>> … # <<< qs-env <<<` block in your PowerShell `$PROFILE` (timestamped backup before every change; uninstall removes exactly the block).
+
+---
+
+## 🎨 Prompt integration
+
+qs-env **never takes over your prompt** on any platform — it never removes or replaces an existing theme. Its only prompt contribution is a small yellow segment that appears **only when `qs` has entered a uv project** (venv activation is already shown by p10k's `virtualenv` / Oh My Posh's `python` segment).
+
+| Platform | Prompt system | What qs-env adds |
+|---|---|---|
+| macOS / Linux | Powerlevel10k | `uv_project` custom segment (`~/.qs/.p10k-custom.zsh`), registered in `~/.p10k.zsh` only when p10k is detected |
+| Windows | Oh My Posh (or anything you like) | Nothing automatically. With `-WithTheme`, the theme file `~\.qs\Theme\custom.omp.json` (a full OMP theme incl. the uv segment) is placed for you. To add just the segment to **your own** OMP config: `.\add-uv-segment.ps1 -ConfigPath your.omp.json` (inserts after the `python` segment, timestamped backup, idempotent) |
+
+Why a custom segment? Neither p10k nor Oh My Posh has a built-in "uv project entered via helper" indicator — OMP's `python` segment only reflects `VIRTUAL_ENV`. `qs <uv-project>` exports `UV_PROJECT_NAME` / `UV_PROJECT_PYTHON`, and the segment renders them.
 
 ---
 
 ## 🧑‍💻 Usage
 
-After installation, the `qs` function is available in every new terminal session.
+Both implementations support:
 
-qs currently supports:
-
-- Classical Python `venv`
-- `uv` projects
-
-### 1. Enter a uv project or activate a venv
-
-```bash
-qs <name>
+```
+qs <name>                  # activate venv / enter uv project (fuzzy match)
+qs                         # toggle out (or enter the default project)
+qs list                    # list projects
+qs default                 # show default target
+qs --set default <path>    # set default (~ and relative paths expanded)
+qs doctor                  # diagnose installation
+qs help                    # full usage
 ```
 
-If `qs` is run without a name, it goes to the default project; change it with:
+### Project search (Windows)
 
-```bash
-qs --set default <path>     # ~ and relative paths are expanded and stored absolute
-```
+Search order for `qs <name>`:
+1. `$HOME` and the current directory (one level — instant)
+2. Deep-scan cache (`~\.qs\.qs-index.json`)
+3. Extra roots you added: `qs --add root D:\projects` (`qs roots`, `qs --remove root <path>`)
+4. Last resort: **every fixed drive** (depth-limited, system folders excluded, results cached) — projects on `D:`/`E:` are found even when kept outside your home
 
-### 2. See all names
+`qs list` includes extra-root finds (full paths shown); `qs list --all` also scans every drive. `qs rehash` clears the cache (e.g. after adding a new disk). venvs are detected via `Scripts\Activate.ps1`; `uv` is optional but recommended.
 
-```bash
-qs list
-```
-
-### 3. Full usage detail
-
-```bash
-qs help
-```
-
-### 4. Check the qs environment
-
-```bash
-qs doctor
-```
+*(macOS/Linux searches `$HOME` + current directory, like the classic shell version.)*
 
 ---
 
-## 🛠 Folder Structure
+## 🛠 Repo structure
 
-After installation:
-```bash
-~/.qs/
-    .qs
-    .qs-version
-    .p10k-custom.zsh   (optional)
 ```
+code/                    macOS/Linux shell function + p10k segment sources
+macOS/                   installer, uninstaller, double-click .command wrappers
+windows/                 PowerShell qs function, install/uninstall,
+                         add-uv-segment.ps1, Theme/custom.omp.json
+```
+
+Installed layout — macOS/Linux: `~/.qs/{.qs,.qs-version,.p10k-custom.zsh}` · Windows: `~\.qs\{qs.ps1,.qs-version,Theme\,\.qs-index.json}`
 
 ---
 
 ## 💡 Notes
 
-- The installer writes only inside `~/.qs/` and the managed block in `~/.zshrc`.
-- Idempotent — running it multiple times re-writes the managed block, never duplicates lines.
-- Works on stock macOS `/bin/bash` (3.2) — no Homebrew prerequisites.
-
----
+- Installers write only into `~/.qs` and the managed config block; idempotent on every platform.
+- macOS script runs on stock `/bin/bash` 3.2 — no Homebrew prerequisites.
+- Windows: works in Windows PowerShell 5.1 and pwsh 7+.
 
 ## 🧭 Troubleshooting
 
-### `qs: command not found`
-
-Open a new terminal, or `source ~/.zshrc`. Then `qs doctor` will tell you exactly what's wrong.
-
-### The managed block is missing from .zshrc
-
-Re-run the installer, or add the two lines above manually.
-
-### The custom p10k segment does not show up
-
-`source ~/.zshrc` or restart the terminal; check `qs doctor`.
-
----
+- **`qs: command not found`** — open a new terminal (Windows: new PowerShell window), or `source ~/.zshrc`; then `qs doctor`.
+- **uv segment not showing** — you must `qs` into a *uv project* (venv shows via the normal python/virtualenv segment); `qs doctor` lists what's loaded.
+- **Windows drive not scanned** — check the `scanning drives: …` line; if a disk is missing there, PowerShell itself can't see the mount. `qs rehash` after adding drives.
 
 ## 📄 License
 MIT License — feel free to modify and adapt.

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # qs-env uninstaller (macOS)
 #
-# One-liner:  curl -fsSL https://raw.githubusercontent.com/Jack-411/qs-env/main/uninstall.sh | bash
+# One-liner:  curl -fsSL https://raw.githubusercontent.com/Jack-411/qs-env/main/macOS/uninstall.sh | bash
 # From clone:  bash uninstall.sh
 #
 # Removes ~/.qs and ONLY the lines qs-env itself added to ~/.zshrc

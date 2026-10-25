@@ -2,10 +2,10 @@
 # qs-env installer (macOS)
 #
 # One-liner install (recommended — no Gatekeeper issues, no chmod):
-#   curl -fsSL https://raw.githubusercontent.com/Jack-411/qs-env/main/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/Jack-411/qs-env/main/macOS/install.sh | bash
 #
 # From a clone:
-#   bash install.sh
+#   bash macOS/install.sh
 #
 # Options: --p10k | --no-p10k   (default: auto — installs the p10k segment
 #          only if your .zshrc already references p10k)
@@ -39,8 +39,8 @@ QS_LINE='[[ -f ~/.qs/.qs ]] && source ~/.qs/.qs'
 P10K_LINE='[[ -f ~/.qs/.p10k-custom.zsh ]] && source ~/.qs/.p10k-custom.zsh'
 
 # --- locate sources: local checkout if present, otherwise download ----------
-if [[ -n "${BASH_SOURCE[0]:-}" && -f "$(dirname "${BASH_SOURCE[0]}")/code/qs" ]]; then
-    SRC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/code" && pwd)"
+if [[ -n "${BASH_SOURCE[0]:-}" && -f "$(dirname "${BASH_SOURCE[0]}")/../code/qs" ]]; then
+    SRC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../code" && pwd)"
 else
     SRC_DIR=""
 fi
