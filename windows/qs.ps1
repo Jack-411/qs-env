@@ -50,6 +50,64 @@ function qs__RootDirs {
     return $dirs
 }
 
+function qs__ExcludedDir([string]$FullName) {
+    $bad = @('\Windows\','\Program Files','\ProgramData\','$Recycle.Bin','\System Volume Information',
+             '\Recovery\','\WinSxS\','\node_modules\','\.git\','\AppData\','\OneDrive\Temp\')
+    foreach ($b in $bad) { if ($FullName -like "*$b*") { return $true } }
+    return $false
+}
+
+function qs__Classify([string]$Dir) {
+    if (qs__IsUvProject $Dir) { return "uv" }
+    if (Test-Path (Join-Path $Dir "Scripts\Activate.ps1")) { return "venv" }
+    return $null
+}
+
+# Depth-limited marker search for venvs/uv projects under a base path.
+function qs__DeepFind([string]$Base, [int]$Depth = 3) {
+    $found = @()
+    if (-not (Test-Path $Base)) { return $found }
+    foreach ($m in @(Get-ChildItem -LiteralPath $Base -Recurse -Depth $Depth -Force -Filter "pyproject.toml" -File -ErrorAction SilentlyContinue),
+                    @(Get-ChildItem -LiteralPath $Base -Recurse -Depth $Depth -Force -Filter "Activate.ps1" -File -ErrorAction SilentlyContinue)) {
+        $dir = if ($m.Name -eq "Activate.ps1") { (Split-Path (Split-Path $m.FullName -Parent) -Parent) } else { $m.DirectoryName }
+        if (-not $dir -or (qs__ExcludedDir $m.FullName)) { continue }
+        if (qs__Classify $dir) { $found += $dir }
+    }
+    return $found
+}
+
+function qs__ExtraRoots {
+    $rf = Join-Path $HOME ".qs_roots"
+    if (-not (Test-Path $rf)) { return @() }
+    @(Get-Content $rf -ErrorAction SilentlyContinue | Where-Object { $_.Trim() -and (Test-Path $_.Trim()) })
+}
+
+function qs__FixedDrives {
+    # All-drive scanning is a Windows concept; elsewhere use qs --add root.
+    if (-not $IsWindows) { return @() }
+    @(Get-PSDrive -PSProvider FileSystem -ErrorAction SilentlyContinue | ForEach-Object { $_.Root } | Where-Object { $_ } | Sort-Object -Unique)
+}
+
+function qs__IndexFile { Join-Path $HOME ".qs\.qs-index.json" }
+
+function qs__LoadIndex {
+    $idx = @{}
+    $f = qs__IndexFile
+    if (Test-Path $f) {
+        try {
+            $raw = Get-Content $f -Raw | ConvertFrom-Json
+            foreach ($prop in $raw.PSObject.Properties) {
+                if (Test-Path $prop.Name) { $idx[$prop.Name] = $prop.Value }
+            }
+        } catch { }
+    }
+    return $idx
+}
+
+function qs__SaveIndex([System.Collections.IDictionary]$Idx) {
+    $Idx | ConvertTo-Json | Set-Content -Path (qs__IndexFile)
+}
+
 function qs__DeactivateQuiet {
     if (Get-Command deactivate -ErrorAction SilentlyContinue) {
         deactivate 2>$null
@@ -204,14 +262,55 @@ function qs {
         return
     }
 
+    if ($argv.Count -ge 1 -and $argv[0] -eq "rehash") {
+        Remove-Item (qs__IndexFile) -ErrorAction SilentlyContinue
+        Write-Output "qs: deep-scan cache cleared (rebuilt on next miss)"
+        return
+    }
+
+    if ($argv.Count -ge 2 -and $argv[0] -eq "--add" -and $argv[1] -eq "root") {
+        if ($argv.Count -lt 3) { Write-Output "Usage: qs --add root <path>"; return }
+        $r = qs__ResolvePath $argv[2]
+        $rf = Join-Path $HOME ".qs_roots"
+        $cur = @(Get-Content $rf -ErrorAction SilentlyContinue)
+        if ($cur -notcontains $r) { Add-Content -Path $rf -Value $r }
+        Write-Output "Extra root added: $r"
+        return
+    }
+
+    if ($argv.Count -ge 2 -and $argv[0] -eq "--remove" -and $argv[1] -eq "root") {
+        if ($argv.Count -lt 3) { Write-Output "Usage: qs --remove root <path>"; return }
+        $r = qs__ResolvePath $argv[2]
+        $rf = Join-Path $HOME ".qs_roots"
+        if (Test-Path $rf) {
+            @(Get-Content $rf) | Where-Object { (qs__ResolvePath $_) -ne $r } | Set-Content $rf
+        }
+        Write-Output "Extra root removed: $r"
+        return
+    }
+
+    if ($argv.Count -ge 1 -and $argv[0] -eq "roots") {
+        $rs = @(qs__ExtraRoots)
+        if ($rs.Count -eq 0) { Write-Output "No extra roots (add with: qs --add root D:\projects)" }
+        else { $rs | ForEach-Object { Write-Output "  $_" } }
+        return
+    }
+
     if ($argv.Count -ge 1 -and ($argv[0] -in "help", "-help", "--help", "-h")) {
         Write-Output @'
 qs                         # toggle uv/venv or enter default
 qs default                 # show current default path
 qs --set default <path>    # set/change default path
-qs list                    # list all venv and uv projects
+qs list                    # list venv and uv projects (incl. extra roots)
+qs list --all              # ... also scan every fixed drive
 qs doctor                  # diagnose qs installation and environments
+qs --add root <path>       # add a folder tree to search (persistent)
+qs --remove root <path>    # remove an extra root
+qs roots                   # show extra roots
+qs rehash                  # clear the deep-scan cache
 qs <name>                  # activate venv or enter uv project
+                           # search order: ~ and cwd, extra roots, then
+                           # every fixed drive (depth-limited, cached)
 '@
         return
     }
@@ -254,9 +353,11 @@ qs <name>                  # activate venv or enter uv project
     }
 
     if ($argv.Count -ge 1 -and $argv[0] -eq "list") {
+        $seen = @{}
         Write-Output "venv environments:"
         foreach ($d in qs__RootDirs) {
             if (Test-Path (Join-Path $d.FullName "Scripts\Activate.ps1")) {
+                $seen[$d.FullName] = $true
                 Write-Output "  $($d.Name)  (Python $(qs__GetPythonVersion $d.FullName))"
             }
         }
@@ -264,7 +365,22 @@ qs <name>                  # activate venv or enter uv project
         Write-Output "uv projects:"
         foreach ($d in qs__RootDirs) {
             if (qs__IsUvProject $d.FullName) {
+                $seen[$d.FullName] = $true
                 Write-Output "  $($d.Name)  (Python $(qs__GetPythonVersion $d.FullName))"
+            }
+        }
+        # extra roots (and all fixed drives with: qs list --all)
+        $extra = @()
+        foreach ($r in qs__ExtraRoots) { $extra += qs__DeepFind $r 3 }
+        if ($argv.Count -ge 2 -and $argv[1] -eq "--all") {
+            foreach ($drive in qs__FixedDrives) { $extra += qs__DeepFind $drive 3 }
+        }
+        foreach ($d in $extra) {
+            if (-not $seen.ContainsKey($d)) {
+                $seen[$d] = $true
+                $kind = qs__Classify $d
+                $label = if ($kind -eq "uv") { "uv project" } else { "venv" }
+                Write-Output "  $(Split-Path $d -Leaf)  ($label, Python $(qs__GetPythonVersion $d))  [$d]"
             }
         }
         return
@@ -281,8 +397,41 @@ qs <name>                  # activate venv or enter uv project
 
     $needle = $argv[0]
     $target = $null
+
+    # 1) fast path: $HOME + current dir (one level, like the shell version)
     foreach ($d in qs__RootDirs) {
         if ($d.Name -like "*$needle*") { $target = $d.FullName; break }
+    }
+
+    # 2) cached deep-scan results
+    if (-not $target) {
+        $idx = qs__LoadIndex
+        foreach ($k in $idx.Keys) {
+            if ($k -like "*$needle*" -and (Test-Path $idx[$k])) { $target = $idx[$k]; break }
+        }
+    }
+
+    # 3) configured extra roots
+    if (-not $target) {
+        foreach ($r in qs__ExtraRoots) {
+            foreach ($d in qs__DeepFind $r 3) {
+                if ((Split-Path $d -Leaf) -like "*$needle*") { $target = $d; break }
+            }
+            if ($target) { break }
+        }
+    }
+
+    # 4) last resort: scan every fixed drive (results cached; qs rehash refreshes)
+    if (-not $target) {
+        Write-Host "No match near HOME/PWD — scanning all drives (first time may take a moment)..." -ForegroundColor DarkGray
+        $idx = qs__LoadIndex
+        foreach ($drive in qs__FixedDrives) {
+            foreach ($d in qs__DeepFind $drive 3) {
+                $idx[$d] = $d   # cache all found projects, keyed by path
+                if ((Split-Path $d -Leaf) -like "*$needle*") { $target = $d }
+            }
+        }
+        qs__SaveIndex $idx
     }
 
     if (-not $target) {
@@ -290,9 +439,10 @@ qs <name>                  # activate venv or enter uv project
         return
     }
 
-    if (qs__IsUvProject $target) {
+    $kind = qs__Classify $target
+    if ($kind -eq "uv") {
         qs__ActivateUvProject $target
-    } elseif (Test-Path (Join-Path $target "Scripts\Activate.ps1")) {
+    } elseif ($kind -eq "venv") {
         qs__ActivateVenv $target
     } else {
         Write-Output "'$target' is not a venv or uv project"

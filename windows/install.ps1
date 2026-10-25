@@ -39,9 +39,11 @@ if (-not $Version) {
 if (-not $Version) { $Version = "unknown" }
 Set-Content -Path (Join-Path $QsHome ".qs-version") -Value $Version -NoNewline
 
+$themeLineNeeded = $false
 if ($WithTheme) {
     New-Item -ItemType Directory -Force -Path (Join-Path $QsHome "Theme") | Out-Null
     Copy-Item (Join-Path $RepoFiles "Theme\custom.omp.json") (Join-Path $QsHome "Theme\custom.omp.json") -Force
+    $themeLineNeeded = $true
 }
 
 # --- managed $PROFILE block -------------------------------------------
@@ -62,13 +64,24 @@ $blockLines = @(
     "# >>> qs-env >>>",
     'if (Test-Path "$HOME\.qs\qs.ps1") { . "$HOME\.qs\qs.ps1" }'
 )
-if ($WithTheme) {
-    $blockLines += 'if (Get-Command oh-my-posh -ErrorAction SilentlyContinue) { oh-my-posh init pwsh --config "$HOME\.qs\Theme\custom.omp.json" | Invoke-Expression }'
+
+$content = Get-Content $PROFILE_PATH -Raw -ErrorAction SilentlyContinue
+
+# Theme policy (mirrors the macOS p10k philosophy): qs-env NEVER takes over
+# the user's prompt. We only add an oh-my-posh init line when the profile
+# has none at all; otherwise we just offer the theme file and say where it is.
+if ($themeLineNeeded) {
+    if ($content -and $content -match "oh-my-posh\s+init") {
+        Write-Host "Existing Oh My Posh initialisation found in profile - leaving your prompt untouched."
+        Write-Host "  Theme with the uv_project segment is at: $QsHome\Theme\custom.omp.json"
+        Write-Host "  Point your existing oh-my-posh init at that file, or copy the 'text' segment"
+        Write-Host "  (background #FFDF00) into your own theme to get the qs uv indicator."
+    } else {
+        $blockLines += 'if (Get-Command oh-my-posh -ErrorAction SilentlyContinue) { oh-my-posh init pwsh --config "$HOME\.qs\Theme\custom.omp.json" | Invoke-Expression }'
+    }
 }
 $blockLines += "# <<< qs-env <<<"
 $block = $blockLines -join "`n"
-
-$content = Get-Content $PROFILE_PATH -Raw -ErrorAction SilentlyContinue
 if ($content -and $content.Contains("# >>> qs-env >>>")) {
     $pattern = "(?s)# >>> qs-env >>>.*?# <<< qs-env <<<"
     $content = [regex]::Replace($content, $pattern, { param($m) $block })
@@ -82,7 +95,7 @@ if ($content -and $content.Contains("# >>> qs-env >>>")) {
 Write-Host ""
 Write-Host "qs-env installed (version $Version)." -ForegroundColor Green
 Write-Host "  ~/.qs/qs.ps1      helper function"
-if ($WithTheme) { Write-Host "  ~/.qs/Theme/      Oh My Posh theme (loaded from profile block)" }
+if ($WithTheme) { Write-Host "  ~/.qs/Theme/      Oh My Posh theme file (see note above about your prompt)" }
 Write-Host "  profile backup:   $backup"
 Write-Host ""
 Write-Host "Open a new PowerShell window, then try:  qs doctor"

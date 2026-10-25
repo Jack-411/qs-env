@@ -63,9 +63,19 @@ Uninstall:
 & ([scriptblock]::Create((irm https://raw.githubusercontent.com/Jack-411/qs-env/main/windows/uninstall.ps1)))
 ```
 
-Installs to `~\.qs\` and manages a `# >>> qs-env >>> … # <<< qs-env <<<` block in your PowerShell `$PROFILE` — rewritten in place, never duplicated, timestamped backup before every change, and uninstall removes exactly the block (never anything that merely contains "qs"). The theme is your Oh My Posh config with an extra `uv_project` segment (yellow) showing the active uv project + Python version, mirroring the p10k segment on macOS.
+Installs to `~\.qs\` and manages a `# >>> qs-env >>> … # <<< qs-env <<<` block in your PowerShell `$PROFILE` — rewritten in place, never duplicated, timestamped backup before every change, and uninstall removes exactly the block (never anything that merely contains "qs").
 
-Windows notes: venvs are detected via `Scripts\Activate.ps1` (the old `D:\` hardcoded search is gone — projects are now found under `$HOME` and the current directory, like the shell version); `uv` is optional but recommended.
+**Prompt policy (same philosophy as the p10k segment on macOS): qs-env never takes over your prompt.** With `-WithTheme`, the theme file (your Oh My Posh config + a yellow `uv_project` segment that shows only when qs is *inside* a uv project — venvs already have the built-in `python` segment) is installed to `~\.qs\Theme\custom.omp.json`. If your profile already initialises Oh My Posh, qs-env detects it, changes nothing, and just tells you where the theme file is; an init line is added only when you have none.
+
+### Project search
+
+Search order for `qs <name>`:
+1. `$HOME` and the current directory (one level — instant, like the shell version)
+2. Deep-scan cache (`~\.qs\.qs-index.json`, refreshed automatically)
+3. Extra roots you added: `qs --add root D:\projects` (depth-limited recursive search; `qs roots`, `qs --remove root`, `qs list` includes them, `qs list --all` scans every fixed drive)
+4. Last resort: every fixed drive, depth-limited with system folders excluded — so projects on `D:`, `E:` … are found even when someone keeps them outside your home. `qs rehash` clears the cache.
+
+Windows notes: venvs are detected via `Scripts\Activate.ps1` (the old `D:\` hardcoded search is gone — see Project search above); `uv` is optional but recommended.
 
 ---
 
