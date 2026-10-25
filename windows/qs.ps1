@@ -84,8 +84,21 @@ function qs__ExtraRoots {
 
 function qs__FixedDrives {
     # All-drive scanning is a Windows concept; elsewhere use qs --add root.
-    if (-not $IsWindows) { return @() }
-    @(Get-PSDrive -PSProvider FileSystem -ErrorAction SilentlyContinue | ForEach-Object { $_.Root } | Where-Object { $_ } | Sort-Object -Unique)
+    # NB: $IsWindows is undefined in Windows PowerShell 5.1 - compare to $false
+    # explicitly so 5.1 does NOT fall into the non-Windows branch.
+    if ($IsWindows -eq $false) { return @() }
+    $roots = @()
+    # Source 1: .NET DriveInfo - authoritative for mounted volumes, subst:, network drives
+    try {
+        $roots += @([System.IO.DriveInfo]::GetDrives() |
+                    Where-Object { $_.IsReady } |
+                    ForEach-Object { $_.RootDirectory.FullName })
+    } catch { }
+    # Source 2: PSDrive - catches provider mappings DriveInfo may not list
+    try {
+        $roots += @(Get-PSDrive -PSProvider FileSystem -ErrorAction SilentlyContinue | ForEach-Object { $_.Root })
+    } catch { }
+    @($roots | Where-Object { $_ } | Sort-Object -Unique)
 }
 
 function qs__IndexFile { Join-Path $HOME ".qs\.qs-index.json" }
@@ -371,9 +384,15 @@ qs <name>                  # activate venv or enter uv project
         }
         # extra roots (and all fixed drives with: qs list --all)
         $extra = @()
-        foreach ($r in qs__ExtraRoots) { $extra += qs__DeepFind $r 3 }
+        $er = @(qs__ExtraRoots)
+        foreach ($r in $er) { $extra += qs__DeepFind $r 3 }
+        if ($er.Count -eq 0) {
+            Write-Host "(only HOME/PWD scanned - 'qs list --all' scans every drive, 'qs --add root <path>' adds trees)" -ForegroundColor DarkGray
+        }
         if ($argv.Count -ge 2 -and $argv[1] -eq "--all") {
-            foreach ($drive in qs__FixedDrives) { $extra += qs__DeepFind $drive 3 }
+            $drives = qs__FixedDrives
+            Write-Host ("scanning drives: " + (($drives | ForEach-Object { $_.TrimEnd('\','/' ) }) -join ", ")) -ForegroundColor DarkGray
+            foreach ($drive in $drives) { $extra += qs__DeepFind $drive 3 }
         }
         foreach ($d in $extra) {
             if (-not $seen.ContainsKey($d)) {
@@ -423,9 +442,10 @@ qs <name>                  # activate venv or enter uv project
 
     # 4) last resort: scan every fixed drive (results cached; qs rehash refreshes)
     if (-not $target) {
-        Write-Host "No match near HOME/PWD — scanning all drives (first time may take a moment)..." -ForegroundColor DarkGray
+        $drives = qs__FixedDrives
+        Write-Host ("No match near HOME/PWD — scanning drives: " + (($drives | ForEach-Object { $_ -replace '[\\/]$','' }) -join ", ") + " (first time may take a moment)...") -ForegroundColor DarkGray
         $idx = qs__LoadIndex
-        foreach ($drive in qs__FixedDrives) {
+        foreach ($drive in $drives) {
             foreach ($d in qs__DeepFind $drive 3) {
                 $idx[$d] = $d   # cache all found projects, keyed by path
                 if ((Split-Path $d -Leaf) -like "*$needle*") { $target = $d }
