@@ -1,6 +1,6 @@
 # 📦 qs-env
 
-A lightweight python environment helper for macOS that installs:
+A lightweight python environment helper for macOS and Windows that installs:
 
 - A hidden shell function file: `~/.qs/.qs`
 - An optional Powerlevel10k custom segment: `~/.qs/.p10k-custom.zsh`
@@ -41,6 +41,31 @@ Removes `~/.qs/` and **only** the exact lines qs-env added to your `.zshrc` — 
 The `macOS/` folder also contains `install.command` / `uninstall.command` for double‑clicking.
 
 > **About the macOS security prompt.** Files downloaded in a browser carry a *quarantine* flag, and macOS blocks unsigned scripts from launching with a plain double‑click — that's Gatekeeper, and no `.command` file can dodge it without a paid Apple Developer signature. The one‑time workaround: **right‑click → Open → Open**. (Installing via the `curl` one‑liner above never hits this at all, which is why it's the recommended path. `git clone` downloads also never set the quarantine flag.)
+
+---
+
+## 🪟 Windows (PowerShell)
+
+Same `qs` features as macOS/Linux — toggle/enter projects, `qs <name>`, `qs list`, `qs default`, `qs --set default <path>`, `qs doctor`, `qs help` — implemented as a PowerShell function (`windows/qs.ps1`).
+
+From PowerShell:
+
+```powershell
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/Jack-411/qs-env/main/windows/install.ps1)))
+
+# optionally also install the bundled Oh My Posh theme (needs the oh-my-posh CLI):
+& ([scriptblock]::Create((irm .../windows/install.ps1))) -WithTheme
+```
+
+Uninstall:
+
+```powershell
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/Jack-411/qs-env/main/windows/uninstall.ps1)))
+```
+
+Installs to `~\.qs\` and manages a `# >>> qs-env >>> … # <<< qs-env <<<` block in your PowerShell `$PROFILE` — rewritten in place, never duplicated, timestamped backup before every change, and uninstall removes exactly the block (never anything that merely contains "qs"). The theme is your Oh My Posh config with an extra `uv_project` segment (yellow) showing the active uv project + Python version, mirroring the p10k segment on macOS.
+
+Windows notes: venvs are detected via `Scripts\Activate.ps1` (the old `D:\` hardcoded search is gone — projects are now found under `$HOME` and the current directory, like the shell version); `uv` is optional but recommended.
 
 ---
 
